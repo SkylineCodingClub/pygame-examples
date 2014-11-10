@@ -10,16 +10,16 @@ GREEN = (0, 255, 0)
 BLUE = (0, 0, 255) 
 BLACK = (0, 0, 0)
 
-SCREEN_WIDTH = 1100
+SCREEN_WIDTH = 640
 SCREEN_HEIGHT = 600
 SPEED_SCALE = 1.1
 X = 0
 Y = 1
 MOVEMENT_SENSITIVITY = 0.3
 FRICTION = .1
-BLOCK_WIDTH = 100
-BLOCK_HEIGHT = 30
-PADDING = 5
+BLOCK_WIDTH = 60
+BLOCK_HEIGHT = 14
+PADDING = 1
 
 
 class Drawable:
@@ -91,7 +91,7 @@ class Paddle(Square):
 
 
 class Ball(Square):
-    def __init__(self, surface, color, position=(0, 0), velocity=(0, -2)):
+    def __init__(self, surface, color, position=(0, 0), velocity=(0, -1)):
         Square.__init__(self, surface, color, position)
         self.velocity = velocity
 
@@ -106,10 +106,15 @@ class Ball(Square):
             self.velocity = (self.velocity[X] * scale, 
                              -self.velocity[Y] * scale)
 
-    def inherit_x_velocity(self, parent):
+    def inherit_velocity(self, parent):
+        velocity_cap = 3
         parent_velocity = parent.get_velocity()
         self.velocity = (self.velocity[X] + parent_velocity[X],
                          self.velocity[Y] + parent_velocity[Y])
+        if(self.velocity[X] > velocity_cap):
+            self.velocity = (velocity_cap, self.velocity[Y])
+        if(self.velocity[Y] > velocity_cap):
+            self.velocity = (self.velocity[X], velocity_cap)
 
     def step(self):
         width = self.surface.get_width()
@@ -125,32 +130,74 @@ class Ball(Square):
         self.move(self.velocity)
 
 
-def load_level(layout):
-    level_blocks = []
-    for row in range(len(layout)):
-        for col in range(len(layout[row])):
-            char = layout[row][col]
-            if(char == '-'):
-                level_blocks.append(
-                    Square(pygame.Surface((BLOCK_WIDTH, BLOCK_HEIGHT)), RED,
-                           position=(col * (BLOCK_WIDTH + PADDING),
-                                     row * (BLOCK_HEIGHT + PADDING)))
-                )
-    return level_blocks
+class Level:
+    def __init__(self):
+        self.blocks = []
+
+    def draw(self, screen):
+        for block in self.blocks:
+            block.draw(screen)
+
+    def remove(self, block):
+        self.blocks.remove(block)
+
+    def load(self, layout):
+        self.blocks = []
+        for row in range(len(layout)):
+            for col in range(len(layout[row])):
+                char = layout[row][col]
+                if(char == '-'):
+                    self.blocks.append(
+                        Square(pygame.Surface((BLOCK_WIDTH, BLOCK_HEIGHT)),
+                               RED, position=(col * (BLOCK_WIDTH + PADDING),
+                                              row * (BLOCK_HEIGHT + PADDING)))
+                    )
+        return self.blocks
 
 
 def game_init():
     screen.get_rect()
-    ball = Ball(pygame.Surface((10, 10)), GREEN, (545, 400))
-    paddle = Paddle(pygame.Surface((100, 10)), BLUE, (500, 500))
+    ball = Ball(pygame.Surface((3, 3)), GREEN, (315, 450))
+    paddle = Paddle(pygame.Surface((30, 3)), BLUE, (290, 550))
+    level = Level()
     layout = [
-        '----------',
-        '..-----...',
-        '....-..---',
+        '.--------.',
+        '.-........',
+        '.-........',
+        '.-........',
+        '.-........',
+        '.-........',
+        '.-........',
+        '.--------.',
         '..........',
+        '.--------.',
+        '.-......-.',
+        '.-......-.',
+        '.-......-.',
+        '.-......-.',
+        '.-......-.',
+        '.-......-.',
+        '.--------.',
+        '..........',
+        '.-------..',
+        '.-.....-..',
+        '.-......-.',
+        '.-......-.',
+        '.-.....-..',
+        '.-------..',
+        '..........',
+        '.-------..',
+        '.-........',
+        '.-........',
+        '.-........',
+        '.-------..',
+        '.-........',
+        '.-........',
+        '.-........',
+        '.-------..',
     ]
 
-    level = load_level(layout)
+    level.load(layout)
     game_loop(screen, ball, paddle, level)
 
 
@@ -168,8 +215,7 @@ def draw_game(screen, ball, paddle, level):
     screen.fill(BLACK)
     ball.draw(screen)
     paddle.draw(screen)
-    for block in level:
-        block.draw(screen)
+    level.draw(screen)
     pygame.display.flip()
 
 
@@ -180,8 +226,9 @@ def step_game(ball, paddle, level):
     collision_direction = ball.collides(paddle)
     if(collision_direction):
         ball.reverse_velocity(collision_direction, SPEED_SCALE)
-        ball.inherit_x_velocity(paddle)
-    for block in level:
+        ball.inherit_velocity(paddle)
+
+    for block in level.blocks:
         collision_direction = ball.collides(block)
         if(collision_direction):
             level.remove(block)
